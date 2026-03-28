@@ -8,6 +8,13 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var openVoiceCommand: Bool = false
+    @State private var openMedia: Bool = false
+    @State private var openCharging: Bool = false
+    
+    @State private var actionText: String = ""
+    @State private var actionIcon: String = ""
+    @State private var openAction: Bool = false
     var body: some View {
         NavigationView {
             ZStack{
@@ -15,15 +22,15 @@ struct ContentView: View {
                     VStack(spacing: 10.0){
                         HomeHeader()
                         CustomDivider()
-                        CarSection()
+                        CarSection(openCharging: $openCharging)
                         CustomDivider()
-                        CategoryView(
+                        CategoryView(openAction: $openAction, actionText: $actionText, actionIcon: $actionIcon, openCharging: $openCharging, openMedia: $openMedia,
                             title: "Quick Shortcuts",
                             showEdit: true,
                             actionItems: quickShortcuts
                         )
                         CustomDivider()
-                        CategoryView(
+                        CategoryView(openAction: $openAction, actionText: $actionText, actionIcon: $actionIcon, openCharging: $openCharging, openMedia: $openMedia,
                             title: "Recent Actions",
                             actionItems: recentActions
                         )
@@ -34,7 +41,49 @@ struct ContentView: View {
                     }
                     .padding()
                 }
-                VoiceCommandView()
+                VoiceCommandButton(openVoiceCommand: $openVoiceCommand)
+                
+                if (openVoiceCommand || openCharging || openMedia || openAction) {
+                    Color.black.opacity(0.5)
+                        .ignoresSafeArea(.all)
+                        .transition(.opacity)
+                        .onTapGesture {
+                            withAnimation {
+                                openVoiceCommand = false
+                                openCharging = false
+                                openMedia = false
+                                openAction = false
+                            }
+                        }
+                }
+                
+                if openVoiceCommand {
+                    VoiceCommandView(
+                        openVoiceCommand: $openVoiceCommand,
+                        text: "Take me to Olive Gardens of New York"
+                    )
+                    .zIndex(1)
+                    .transition(.move(edge: .bottom))
+                }
+                if openCharging {
+                    ChargingView()
+                    .zIndex(1)
+                    .transition(.move(edge: .bottom))
+                }
+                if openMedia {
+                    MediaPlayer()
+                    .zIndex(1)
+                    .transition(.move(edge: .bottom))
+                }
+                if openAction && !actionText.isEmpty {
+                    ActionNotifications(
+                        open: $openAction,
+                        text: actionText,
+                        icon: actionIcon
+                    )
+                    .zIndex(1)
+                    .transition(.move(edge: .bottom))
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color("DarkGray"))
@@ -44,26 +93,33 @@ struct ContentView: View {
         }
     }
 }
-struct VoiceCommandView: View {
+struct VoiceCommandButton: View {
+    @Binding var openVoiceCommand: Bool
     var body: some View {
         VStack{
             Spacer()
             HStack{
                 Spacer()
-                Image(systemName: "mic.fill")
-                    .font(
-                        .system(
-                            size: 24,
-                            weight: .semibold,
-                            design: .default
+                Button {
+                    withAnimation {
+                        openVoiceCommand = true
+                    }
+                } label: {
+                    Image(systemName: "mic.fill")
+                        .font(
+                            .system(
+                                size: 24,
+                                weight: .semibold,
+                                design: .default
+                            )
                         )
-                    )
-                    .foregroundStyle(Color("DarkGray"))
-                    .frame(width: 64, height: 64)
-                    .background(Color("Green"))
-                    .clipShape(Circle())
-                    .padding()
-                    .shadow(radius: 10.0)
+                        .foregroundStyle(Color("DarkGray"))
+                        .frame(width: 64, height: 64)
+                        .background(Color("Green"))
+                        .clipShape(Circle())
+                        .padding()
+                        .shadow(radius: 10.0)
+                }
             }
         }
         .ignoresSafeArea(.all)
@@ -101,40 +157,21 @@ struct HomeHeader: View {
     }
 }
 
-struct GeneralButton: View {
-    var icon: String
-    var body: some View {
-        Image(systemName: icon)
-            .imageScale(.large)
-            .frame(width: 50, height: 50)
-            .background(Color.white.opacity(0.1))
-            .clipShape(Circle())
-            .overlay{
-                Circle()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
-            }
-    }
-}
-
-struct CustomDivider: View {
-    var body: some View {
-        Color.white.opacity(0.1)
-            .frame(maxWidth: .infinity)
-            .frame(height: 0.5)
-            
-    }
-}
-
 struct CarSection: View {
+    @Binding var openCharging: Bool
     var body: some View {
         VStack(spacing: 10){
             HStack(alignment: .top){
-                HStack{
-                    Image(systemName: "battery.75")
-                    Text("237 miles".uppercased())
+                Button {
+                    withAnimation {
+                        openCharging = true
+                    }
+                } label: {
+                    Label("237 miles".uppercased(), systemImage: "battery.75")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color("Green"))
                 }
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color("Green"))
+
                 Spacer()
                 VStack(alignment: .trailing){
                     Text("Parked")
@@ -174,6 +211,13 @@ struct CategoryHeader: View {
 }
 
 struct CategoryView: View {
+    @Binding var openAction: Bool
+    @Binding var actionText: String
+    @Binding var actionIcon: String
+    
+    @Binding var openCharging: Bool
+    @Binding var openMedia: Bool
+    
     var title: String
     var showEdit: Bool = false
     var actionItems: [ActionItem]
@@ -182,8 +226,30 @@ struct CategoryView: View {
             CategoryHeader(title: title, showEdit: showEdit)
             ScrollView(.horizontal) {
                 HStack(alignment: .top){
+                    if title == "Quick Shortcuts" {
+                        Button {
+                            withAnimation {
+                                openCharging = true
+                            }
+                        } label: {
+                            ActionButton(item: chargingShortcut)
+                        }
+                        Button {
+                            withAnimation {
+                                openMedia = true
+                            }
+                        } label: {
+                            ActionButton(item: mediaShortcut)
+                        }
+
+                    }
                     ForEach(actionItems, id: \.self) { item in
-                        Button(action: {}) {
+                        Button(action: {
+                            openAction = true
+                            actionText = item.text
+                            actionIcon = item.icon
+                        }) {
+                            
                             ActionButton(item: item)
                         }
                     }
@@ -194,30 +260,15 @@ struct CategoryView: View {
     }
 }
 
-struct ActionButton: View {
-    var item: ActionItem
-    var body: some View {
-        VStack{
-            GeneralButton(icon: item.icon)
-            Text(item.text)
-                .frame(width: 72)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .multilineTextAlignment(.center)
-        }
-    }
-}
 
-struct ActionItem: Hashable {
-    var icon: String
-    var text: String
-}
 
 let quickShortcuts: [ActionItem]  = [
-    ActionItem(icon: "bolt.fill", text: "Charging"),
     ActionItem(icon: "fanblades.fill", text: "Fan On"),
-    ActionItem(icon: "music.note", text: "Media Controls"),
     ActionItem(icon: "bolt.car", text: "Close Charge Port")
 ]
+
+let chargingShortcut: ActionItem = ActionItem(icon: "bolt.fill", text: "Charging")
+let mediaShortcut: ActionItem = ActionItem(icon: "music.note", text: "Media Controls")
 
 let recentActions: [ActionItem]  = [
     ActionItem(icon: "arrow.up.square", text: "Open Trunk"),
@@ -245,11 +296,13 @@ struct AllSettings: View {
                     subtitle: "Interior 68° F",
                     backgroundColor: Color("Blue")
                 )
-                SettingsBlock(
-                    icon: "location.fill",
-                    title: "Location",
-                    subtitle: "empire state building"
-                )
+                NavigationLink(destination: LocationView()) {
+                    SettingsBlock(
+                        icon: "location.fill",
+                        title: "Location",
+                        subtitle: "empire state building"
+                    )
+                }
                 SettingsBlock(
                     icon: "checkerboard.shield",
                     title: "Security",
